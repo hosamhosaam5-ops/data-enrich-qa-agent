@@ -1,0 +1,66 @@
+name: Public Worker API smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check endpoint rejects missing API key
+        env:
+          API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --show-error --output /tmp/no-key.json --write-out "%{http_code}" \
+            --request POST "$API_URL" \
+            --header "Content-Type: application/json" \
+            --data '{"company_name":"Microsoft"}')
+          echo "No-key HTTP status: $code"
+          cat /tmp/no-key.json
+          test "$code" = "401"
+
+      - name: Call Worker and validate JSON response
+        env:
+          API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
+          API_KEY: ${{ secrets.RAPIDAPI_TEST_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$API_KEY" ]; then
+            echo "::error::Add repository secret RAPIDAPI_TEST_KEY before running the authenticated test."
+            exit 1
+          fi
+
+          code=$(curl --silent --show-error --output /tmp/response.json --write-out "%{http_code}" \
+            --max-time 90 \
+            --request POST "$API_URL" \
+            --header "Content-Type: application/json" \
+            --header "x-rapidapi-key: $API_KEY" \
+            --data '{"company_name":"Microsoft"}')
+
+          echo "Authenticated HTTP status: $code"
+          cat /tmp/response.json
+          test "$code" = "200"
+
+          node -e '
+            const fs = require("fs");
+            const body = JSON.parse(fs.readFileSync("/tmp/response.json", "utf8"));
+            const required = ["company_name", "ceo_name", "ceo_email", "linkedin_url", "industry", "confidence", "verification_status", "data_source", "is_verified"];
+            const missing = required.filter((key) => !(key in body));
+            if (missing.length) {
+              console.error("Missing response fields:", missing.join(", "));
+              process.exit(1);
+            }
+            if (body.verification_status !== "unverified_ai_generated" || body.is_verified !== false) {
+              console.error("Response did not preserve the expected unverified-data labels.");
+              process.exit(1);
+            }
+            console.log("PASS: valid JSON and expected response schema.");
+            console.log("Verification status:", body.verification_status);
+            console.log("Data source:", body.data_source);
+            console.log("is_verified:", body.is_verified);
+          '
