@@ -14,8 +14,11 @@ function parseModelJson(value) {
     if (value && typeof value === "object") return value;
     throw new Error("AI model returned no text");
   }
-  const cleaned = value.trim().replace(/^```(?:json)?s*/i, "").replace(/s*```$/, "");
-  return JSON.parse(cleaned);
+  let cleaned = value.trim();
+  if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7);
+  else if (cleaned.startsWith("```")) cleaned = cleaned.slice(3);
+  if (cleaned.trimEnd().endsWith("```")) cleaned = cleaned.trimEnd().slice(0, -3);
+  return JSON.parse(cleaned.trim());
 }
 export default {
   async fetch(request, env) {
