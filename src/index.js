@@ -1,9 +1,7 @@
-const RAPIDAPI_TEST_KEY = "test-key-123";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-rapidapi-key",
+  "Access-Control-Allow-Headers": "Content-Type, x-rapidapi-proxy-secret",
   "Content-Type": "application/json; charset=utf-8",
 };
 function jsonResponse(body, status = 200) {
@@ -25,8 +23,13 @@ export default {
     try {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
       if (request.method !== "POST") return jsonResponse({ success: false, error: "Method not allowed. Use POST." }, 405);
-      if (request.headers.get("x-rapidapi-key") !== RAPIDAPI_TEST_KEY) {
-        return jsonResponse({ success: false, error: "Unauthorized: valid x-rapidapi-key required." }, 401);
+      // The shared origin secret is configured in Cloudflare as a Worker Secret.
+      // RapidAPI must inject this header using its hidden Secret Headers setting.
+      if (!env.RAPIDAPI_KEY) {
+        return jsonResponse({ success: false, error: "Server authentication is not configured." }, 503);
+      }
+      if (request.headers.get("x-rapidapi-proxy-secret") !== env.RAPIDAPI_KEY) {
+        return jsonResponse({ success: false, error: "Unauthorized: valid RapidAPI proxy secret required." }, 401);
       }
       const contentType = request.headers.get("content-type") || "";
       if (!contentType.toLowerCase().includes("application/json")) {
