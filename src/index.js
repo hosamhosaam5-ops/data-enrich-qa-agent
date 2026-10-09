@@ -55,7 +55,7 @@ Return ONLY one valid JSON object. No Markdown, code fences, or commentary.
 Schema:
 {"company_name":"string","ceo_name":"string or null","ceo_email":"string or null","linkedin_url":"string or null","industry":"string or null","confidence":"low|medium|high","verification_status":"unverified_ai_generated","data_source":"cloudflare_workers_ai","is_verified":false}
 Rules: You have no live web search. Never claim facts are verified. Do not invent a person's private email or claim an email belongs to a CEO. For unknown CEO, email, LinkedIn URL, or industry, return null. Any non-null email must be syntactically valid and confidently known as public corporate contact. Any non-null LinkedIn URL must begin https://www.linkedin.com/. Keep company_name exactly as supplied. Do not add keys.`;
-      const aiResult = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+      const aiResult = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fp8", {
         messages: [
           { role: "system", content: "Return strict JSON only. Do not fabricate facts. Use null for uncertain values." },
           { role: "user", content: prompt }
