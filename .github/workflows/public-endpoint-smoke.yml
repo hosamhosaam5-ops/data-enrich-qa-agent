@@ -27,11 +27,11 @@ jobs:
       - name: Call Worker and validate JSON response
         env:
           API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
-          API_KEY: ${{ secrets.RAPIDAPI_TEST_KEY }}
+          API_KEY: ${{ secrets.RAPIDAPI_PROXY_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "$API_KEY" ]; then
-            echo "::error::Add repository secret RAPIDAPI_TEST_KEY before running the authenticated test."
+            echo "::error::Add repository secret RAPIDAPI_PROXY_SECRET before running the authenticated test."
             exit 1
           fi
 
@@ -39,7 +39,7 @@ jobs:
             --max-time 90 \
             --request POST "$API_URL" \
             --header "Content-Type: application/json" \
-            --header "x-rapidapi-key: $API_KEY" \
+            --header "x-rapidapi-proxy-secret: $API_KEY" \
             --data '{"company_name":"Microsoft"}')
 
           echo "Authenticated HTTP status: $code"
