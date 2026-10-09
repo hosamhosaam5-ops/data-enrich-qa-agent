@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: Data Enrich QA API
+  version: 1.0.0
+  description: >
+    Generates a cautious AI-assisted company profile. Results are not independently
+    verified and must not be treated as authoritative records.
+servers:
+  - url: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
+    description: Current Cloudflare Worker origin (for provider testing only)
+paths:
+  /:
+    post:
+      operationId: enrichCompany
+      summary: Enrich a company name with AI-generated fields
+      description: >
+        Provide a company name. The service may return CEO, public contact, LinkedIn,
+        and industry fields when the model can provide them, otherwise null.
+        All returned data is explicitly unverified. Requests routed through RapidAPI
+        must configure the hidden X-RapidAPI-Proxy-Secret header in RapidAPI's
+        Secret Headers & Parameters settings; do not expose that secret to consumers.
+      security:
+        - RapidAPIKey: []
+          RapidAPIHost: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrichmentRequest'
+            example:
+              company_name: Microsoft
+      responses:
+        '200':
+          description: Enrichment completed; values are AI-generated and unverified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrichmentSuccess'
+              example:
+                success: true
+                data:
+                  company_name: Microsoft
+                  ceo_name: null
+                  ceo_email: null
+                  linkedin_url: null
+                  industry: Technology
+                  confidence: low
+                  verification_status: unverified_ai_generated
+                  data_source: cloudflare_workers_ai
+                  is_verified: false
+        '400':
+          description: Missing or invalid company_name or invalid JSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request not authorized by RapidAPI origin secret validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '405':
+          description: Only POST is supported.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Content-Type must be application/json.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: The AI model returned invalid output.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Workers AI or origin authentication is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected internal error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    RapidAPIKey:
+      type: apiKey
+      in: header
+      name: X-RapidAPI-Key
+      description: Automatically supplied by RapidAPI for subscriber authentication.
+    RapidAPIHost:
+      type: apiKey
+      in: header
+      name: X-RapidAPI-Host
+      description: Automatically supplied by RapidAPI for subscriber routing.
+  schemas:
+    EnrichmentRequest:
+      type: object
+      required:
+        - company_name
+      properties:
+        company_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Company name to enrich.
+          example: Microsoft
+      additionalProperties: false
+    EnrichmentSuccess:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+          required:
+            - company_name
+            - ceo_name
+            - ceo_email
+            - linkedin_url
+            - industry
+            - confidence
+            - verification_status
+            - data_source
+            - is_verified
+          properties:
+            company_name:
+              type: string
+            ceo_name:
+              type: string
+              nullable: true
+            ceo_email:
+              type: string
+              format: email
+              nullable: true
+            linkedin_url:
+              type: string
+              format: uri
+              nullable: true
+            industry:
+              type: string
+              nullable: true
+            confidence:
+              type: string
+              enum: [low, medium, high]
+            verification_status:
+              type: string
+              enum: [unverified_ai_generated]
+            data_source:
+              type: string
+              enum: [cloudflare_workers_ai]
+            is_verified:
+              type: boolean
+              enum: [false]
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+        details:
+          type: string
