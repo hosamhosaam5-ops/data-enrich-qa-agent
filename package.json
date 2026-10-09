@@ -1,0 +1,13 @@
+{
+  "name": "data-enrich-qa-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone Cloudflare Worker MVP for mock company data enrichment QA.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
