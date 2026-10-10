@@ -4,9 +4,9 @@ import worker from "../src/index.js";
 
 const SECRET = "unit-test-secret-only";
 
-function makeEnv({ secret = SECRET, aiResponse } = {}) {
+function makeEnv({ secret = SECRET, omitSecret = false, aiResponse } = {}) {
   return {
-    ...(secret === undefined ? {} : { RAPIDAPI_KEY: secret }),
+    ...(!omitSecret ? { RAPIDAPI_KEY: secret } : {}),
     AI: {
       async run(model, options) {
         assert.equal(model, "@cf/meta/llama-3.1-8b-instruct-fp8");
@@ -18,7 +18,7 @@ function makeEnv({ secret = SECRET, aiResponse } = {}) {
             ceo_email: "public@example.com",
             linkedin_url: "https://www.linkedin.com/company/example/",
             industry: "Technology",
-            confidence: "medium",
+            confidence: "unexpected-value",
             verification_status: "verified",
             data_source: "model",
             is_verified: true
@@ -40,7 +40,7 @@ async function send({
 }
 
 test("fails closed with 503 when the origin secret is not configured", async () => {
-  const response = await send({ env: makeEnv({ secret: undefined }) });
+  const response = await send({ env: makeEnv({ omitSecret: true }) });
   assert.equal(response.status, 503);
   assert.match((await response.json()).error, /not configured/i);
 });
