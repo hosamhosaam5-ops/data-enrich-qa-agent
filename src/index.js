@@ -1,9 +1,7 @@
-const RAPIDAPI_TEST_KEY = "test-key-123";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-rapidapi-key",
+  "Access-Control-Allow-Headers": "Content-Type, x-rapidapi-proxy-secret",
   "Content-Type": "application/json; charset=utf-8",
 };
 function jsonResponse(body, status = 200) {
@@ -25,8 +23,13 @@ export default {
     try {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
       if (request.method !== "POST") return jsonResponse({ success: false, error: "Method not allowed. Use POST." }, 405);
-      if (request.headers.get("x-rapidapi-key") !== RAPIDAPI_TEST_KEY) {
-        return jsonResponse({ success: false, error: "Unauthorized: valid x-rapidapi-key required." }, 401);
+      // The shared origin secret is configured in Cloudflare as a Worker Secret.
+      // RapidAPI must inject this header using its hidden Secret Headers setting.
+      if (!env.RAPIDAPI_KEY) {
+        return jsonResponse({ success: false, error: "Server authentication is not configured." }, 503);
+      }
+      if (request.headers.get("x-rapidapi-proxy-secret") !== env.RAPIDAPI_KEY) {
+        return jsonResponse({ success: false, error: "Unauthorized: valid RapidAPI proxy secret required." }, 401);
       }
       const contentType = request.headers.get("content-type") || "";
       if (!contentType.toLowerCase().includes("application/json")) {
@@ -52,7 +55,7 @@ Return ONLY one valid JSON object. No Markdown, code fences, or commentary.
 Schema:
 {"company_name":"string","ceo_name":"string or null","ceo_email":"string or null","linkedin_url":"string or null","industry":"string or null","confidence":"low|medium|high","verification_status":"unverified_ai_generated","data_source":"cloudflare_workers_ai","is_verified":false}
 Rules: You have no live web search. Never claim facts are verified. Do not invent a person's private email or claim an email belongs to a CEO. For unknown CEO, email, LinkedIn URL, or industry, return null. Any non-null email must be syntactically valid and confidently known as public corporate contact. Any non-null LinkedIn URL must begin https://www.linkedin.com/. Keep company_name exactly as supplied. Do not add keys.`;
-      const aiResult = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+      const aiResult = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fp8", {
         messages: [
           { role: "system", content: "Return strict JSON only. Do not fabricate facts. Use null for uncertain values." },
           { role: "user", content: prompt }

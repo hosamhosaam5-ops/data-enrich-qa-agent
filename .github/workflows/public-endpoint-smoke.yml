@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Check endpoint rejects missing API key
+      - name: Check endpoint rejects unauthenticated requests
         env:
           API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
         run: |
@@ -20,18 +20,21 @@ jobs:
             --request POST "$API_URL" \
             --header "Content-Type: application/json" \
             --data '{"company_name":"Microsoft"}')
-          echo "No-key HTTP status: $code"
+          echo "Unauthenticated HTTP status: $code"
           cat /tmp/no-key.json
-          test "$code" = "401"
+          # 401 means the proxy secret was checked and rejected. 503 means the
+          # secret is not configured; this also fails closed, but authenticated
+          # smoke testing cannot pass until configuration is completed.
+          test "$code" = "401" -o "$code" = "503"
 
       - name: Call Worker and validate JSON response
         env:
           API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
-          API_KEY: ${{ secrets.RAPIDAPI_TEST_KEY }}
+          API_KEY: ${{ secrets.RAPIDAPI_PROXY_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "$API_KEY" ]; then
-            echo "::error::Add repository secret RAPIDAPI_TEST_KEY before running the authenticated test."
+            echo "::error::Add repository secret RAPIDAPI_PROXY_SECRET before running the authenticated test."
             exit 1
           fi
 
@@ -39,7 +42,7 @@ jobs:
             --max-time 90 \
             --request POST "$API_URL" \
             --header "Content-Type: application/json" \
-            --header "x-rapidapi-key: $API_KEY" \
+            --header "x-rapidapi-proxy-secret: $API_KEY" \
             --data '{"company_name":"Microsoft"}')
 
           echo "Authenticated HTTP status: $code"
@@ -49,18 +52,22 @@ jobs:
           node -e '
             const fs = require("fs");
             const body = JSON.parse(fs.readFileSync("/tmp/response.json", "utf8"));
+            if (!body || body.success !== true || !body.data || typeof body.data !== "object") {
+              console.error("Response is missing success/data object.");
+              process.exit(1);
+            }
             const required = ["company_name", "ceo_name", "ceo_email", "linkedin_url", "industry", "confidence", "verification_status", "data_source", "is_verified"];
-            const missing = required.filter((key) => !(key in body));
+            const missing = required.filter((key) => !(key in body.data));
             if (missing.length) {
               console.error("Missing response fields:", missing.join(", "));
               process.exit(1);
             }
-            if (body.verification_status !== "unverified_ai_generated" || body.is_verified !== false) {
+            if (body.data.verification_status !== "unverified_ai_generated" || body.data.is_verified !== false) {
               console.error("Response did not preserve the expected unverified-data labels.");
               process.exit(1);
             }
             console.log("PASS: valid JSON and expected response schema.");
-            console.log("Verification status:", body.verification_status);
-            console.log("Data source:", body.data_source);
-            console.log("is_verified:", body.is_verified);
+            console.log("Verification status:", body.data.verification_status);
+            console.log("Data source:", body.data.data_source);
+            console.log("is_verified:", body.data.is_verified);
           '
