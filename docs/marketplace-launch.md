@@ -6,14 +6,14 @@ This document separates code readiness from account configuration and commercial
 
 ### 1. Secure the RapidAPI-to-Worker path
 
-- [ ] In RapidAPI Provider Dashboard, open **Definition → API Specs → Settings → Secret Headers & Parameters**.
-- [ ] Add hidden header `X-RapidAPI-Proxy-Secret` with a high-entropy random value. Confirm its type is **Header**, not query parameter. RapidAPI must inject it into every proxied request.
+- [ ] In RapidAPI Provider Dashboard, open this API's **Firewall Settings** and click **Copy** beside the automatically generated `X-RapidAPI-Proxy-Secret` value.
+- [ ] Use RapidAPI's generated firewall value as-is. Do **not** create a second custom header with the same name under Secret Headers & Parameters.
 - [ ] Set the exact same value as Cloudflare Worker Secret `RAPIDAPI_KEY` using `npx wrangler secret put RAPIDAPI_KEY` from a trusted terminal.
 - [ ] Set that exact value as GitHub Actions repository secret `RAPIDAPI_PROXY_SECRET`.
 - [ ] Never reuse `test-key-123`; it was in public source and must be considered compromised.
 - [ ] Confirm the Worker has the AI binding `AI` and the secret binding `RAPIDAPI_KEY` without reading or printing the secret itself.
 
-**Do not merge or deploy the security PR until the RapidAPI hidden header and Cloudflare Worker Secret are configured to match.** The hardened code intentionally fails closed if the Worker secret is absent.
+**Do not merge or deploy the security PR until the RapidAPI-generated Firewall Settings value and Cloudflare Worker Secret are configured to match.** The hardened code intentionally fails closed if the Worker secret is absent.
 
 ### 2. Test and release
 
