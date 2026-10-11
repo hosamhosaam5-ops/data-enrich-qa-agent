@@ -39,7 +39,7 @@ Values may be `null` when the model cannot provide a cautious answer. The model'
 
 The Worker must only be called through the RapidAPI proxy. The shared origin secret is **not** the public RapidAPI subscriber key.
 
-1. In the RapidAPI provider dashboard for this API, configure a hidden secret header named `X-RapidAPI-Proxy-Secret` and generate a high-entropy value. RapidAPI must inject this header into proxied requests; do not expose it as a public parameter.
+1. In RapidAPI Provider Dashboard, open this API's **Firewall Settings** and use **Copy** beside the automatically generated `X-RapidAPI-Proxy-Secret` value. Do not add another header with this name under Secret Headers & Parameters; the firewall header is generated automatically for this API.
 2. Configure a Cloudflare **Worker Secret** named `RAPIDAPI_KEY` with the exact same value. From a trusted local terminal, run `npx wrangler secret put RAPIDAPI_KEY` and paste the value only into the terminal prompt. Do not put it in source code, a wrangler.toml file, or a commit.
 3. Configure a GitHub Actions repository secret named `RAPIDAPI_PROXY_SECRET` with that same value so the manually triggered production smoke test can make an authenticated request.
 4. Deploy the reviewed Worker version only after step 1 and step 2 are complete. Then run the **Public Worker API smoke test** workflow; the authenticated case also needs step 3.
