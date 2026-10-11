@@ -1,18 +1,16 @@
-openapi: 3.0.3
+openapi: 3.0.2
 info:
-  title: Data Enrich QA
+  title: EnrichIQ
   version: 1.0.0
-  description: AI-assisted company profile enrichment from a company name, with explicit unverified-data labels.
+  description: Turn company names into AI powered business insights with leadership details, contacts and industry data. Fast, simple and built for developers and AI agents. Results are unverified and may be inaccurate.
   termsOfService: https://github.com/hosamhosaam5-ops/data-enrich-qa-agent/blob/main/docs/terms-of-service.md
   x-long-description: >
-    Data Enrich QA accepts a company name and returns a cautiously generated draft
-    profile that may include a CEO name, public business contact email, LinkedIn URL,
-    and industry. Unknown fields may be null. The service currently uses an AI model
-    without live web research or independent source verification. Results may be
-    incomplete, outdated, or incorrect; never treat them as authoritative. Every
-    response explicitly uses verification_status unverified_ai_generated and
-    is_verified false. Intended for prototyping and data-quality workflows where
-    downstream verification is performed by the consumer.
+    EnrichIQ turns company names into AI powered business insights for developers and AI agents.
+    It may return leadership information, public business contact details, LinkedIn URLs,
+    and industry fields. Unknown fields may be null. The service uses an AI model without
+    live web research or independent source verification. Results may be incomplete,
+    outdated, or incorrect. Every response remains marked unverified and must be checked
+    independently before use in consequential workflows.
   x-category: Data
   x-website: https://github.com/hosamhosaam5-ops/data-enrich-qa-agent
 servers:
