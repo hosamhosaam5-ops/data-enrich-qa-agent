@@ -26,9 +26,10 @@ paths:
       description: >
         Provide a company name. The service may return CEO, public contact, LinkedIn,
         and industry fields when the model can provide them, otherwise null.
-        All returned data is explicitly unverified. Requests routed through RapidAPI
-        must configure the hidden X-RapidAPI-Proxy-Secret header in RapidAPI's
-        Secret Headers & Parameters settings; do not expose that secret to consumers.
+        All returned data is explicitly unverified. RapidAPI automatically injects
+        its API-specific X-RapidAPI-Proxy-Secret header from Firewall Settings.
+        The Worker validates this header against a Cloudflare Worker Secret; do not
+        expose the secret value to API consumers.
       security:
         - RapidAPIKey: []
           RapidAPIHost: []
