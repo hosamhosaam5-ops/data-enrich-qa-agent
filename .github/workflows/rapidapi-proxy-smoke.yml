@@ -1,0 +1,62 @@
+name: RapidAPI Proxy Smoke Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rapidapi-proxy-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call Data Enrich QA through the RapidAPI proxy
+        shell: bash
+        env:
+          API_URL: https://data-enrich-qa.p.rapidapi.com/
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RAPIDAPI_KEY}" ]; then
+            echo "::error::Add the rotated RapidAPI app key as the repository secret RAPIDAPI_API_KEY."
+            exit 1
+          fi
+
+          status=$(curl --silent --show-error \
+            --output /tmp/rapidapi-response.json \
+            --write-out "%{http_code}" \
+            --max-time 90 \
+            --request POST "${API_URL}" \
+            --header "Content-Type: application/json" \
+            --header "X-RapidAPI-Key: ${RAPIDAPI_KEY}" \
+            --header "X-RapidAPI-Host: data-enrich-qa.p.rapidapi.com" \
+            --data '{"company_name":"Microsoft"}')
+
+          echo "RapidAPI HTTP status: ${status}"
+          if [ "${status}" != "200" ]; then
+            echo "RapidAPI returned a non-200 response:"
+            cat /tmp/rapidapi-response.json
+            exit 1
+          fi
+
+          node --input-type=commonjs <<'NODE'
+          const fs = require("node:fs");
+          const body = JSON.parse(fs.readFileSync("/tmp/rapidapi-response.json", "utf8"));
+          if (body?.success !== true || !body?.data || typeof body.data !== "object") {
+            console.error("FAIL: response is missing success=true and a data object.");
+            process.exit(1);
+          }
+          if (body.data.verification_status !== "unverified_ai_generated") {
+            console.error("FAIL: unexpected verification_status.");
+            process.exit(1);
+          }
+          if (body.data.is_verified !== false) {
+            console.error("FAIL: is_verified must be false.");
+            process.exit(1);
+          }
+          console.log("PASS: RapidAPI proxy returned HTTP 200 and expected unverified-data labels.");
+          console.log("verification_status:", body.data.verification_status);
+          console.log("is_verified:", body.data.is_verified);
+          NODE
