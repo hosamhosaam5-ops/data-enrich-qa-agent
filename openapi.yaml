@@ -3,7 +3,7 @@ info:
   title: Data Enrich QA
   version: 1.0.0
   description: AI-assisted company profile enrichment from a company name, with explicit unverified-data labels.
-  termsOfService: https://github.com/hosamhosaam5-ops/data-enrich-qa-agent/blob/security/rapidapi-origin-secret-openapi/docs/terms-of-service.md
+  termsOfService: https://github.com/hosamhosaam5-ops/data-enrich-qa-agent/blob/main/docs/terms-of-service.md
   x-long-description: >
     Data Enrich QA accepts a company name and returns a cautiously generated draft
     profile that may include a CEO name, public business contact email, LinkedIn URL,
@@ -185,7 +185,6 @@ components:
       properties:
         success:
           type: boolean
-          enum: [false]
         error:
           type: string
         details:
