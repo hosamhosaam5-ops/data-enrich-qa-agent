@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Data Enrich QA API
+  title: Data Enrich QA
   version: 1.0.0
   description: >
     Generates a cautious AI-assisted company profile. Results are not independently
