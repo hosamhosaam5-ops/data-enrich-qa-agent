@@ -1,0 +1,64 @@
+name: Live Enrichment Production Smoke
+on:
+  push:
+    branches:
+      - ops/live-enrich-smoke-2026-10-14
+    paths:
+      - ".github/workflows/live-enrich-smoke.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: live-enrichment-production-smoke
+  cancel-in-progress: true
+jobs:
+  live-enrichment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm authentication gate rejects requests without the secret
+        shell: bash
+        env:
+          API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/unauth.json --write-out "%{http_code}" --max-time 20 --request POST "$API_URL" --header "Content-Type: application/json" --data '{"company_name":"Microsoft"}')
+          echo "unauthenticated_status=$status"
+          test "$status" = "401" -o "$status" = "503"
+      - name: Call production Worker with repository-stored secret and validate sourced response
+        shell: bash
+        env:
+          API_URL: https://data-enrich-qa-agent.hosamhosaam5.workers.dev
+          API_KEY: ${{ secrets.RAPIDAPI_PROXY_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$API_KEY" ]; then
+            echo "::error::Repository secret RAPIDAPI_PROXY_SECRET is missing; authenticated production smoke cannot run."
+            exit 1
+          fi
+          status=$(curl --silent --show-error --output /tmp/response.json --write-out "%{http_code}" --max-time 45 --request POST "$API_URL" --header "Content-Type: application/json" --header "x-rapidapi-proxy-secret: $API_KEY" --data '{"company_name":"Microsoft"}')
+          echo "authenticated_status=$status"
+          test "$status" = "200"
+          node --input-type=commonjs <<'NODE'
+          const fs = require("node:fs");
+          const body = JSON.parse(fs.readFileSync("/tmp/response.json", "utf8"));
+          const data = body?.data;
+          if (body?.success !== true || !data || typeof data !== "object") throw new Error("Expected success=true and data object");
+          if (data.company_name !== "Microsoft") throw new Error("Company name changed unexpectedly");
+          if (data.verification_status !== "source_attributed_unverified") throw new Error("Expected the sourced path, got " + data.verification_status);
+          if (data.data_source !== "wikidata" || data.is_verified !== false) throw new Error("Source or verification labels are inconsistent");
+          if (data.source_lookup_status !== "exact_match" || !data.matched_entity?.id) throw new Error("Missing exact-match entity");
+          if (!Array.isArray(data.sources) || data.sources.length < 1) throw new Error("No field-level source records returned");
+          if (data.ceo_email !== null) throw new Error("Sourced path must not fabricate a CEO email");
+          console.log(JSON.stringify({
+            result: "PASS",
+            company_name: data.company_name,
+            matched_entity_id: data.matched_entity.id,
+            source_count: data.sources.length,
+            source_fields: data.sources.map(s => s.field),
+            verification_status: data.verification_status,
+            data_source: data.data_source,
+            is_verified: data.is_verified,
+            ceo_email_is_null: data.ceo_email === null
+          }, null, 2));
+          NODE
