@@ -30,7 +30,7 @@ jobs:
           assert.equal(profile.data_source, 'wikidata');
           assert.equal(profile.verification_status, 'source_attributed_unverified');
           assert.equal(profile.is_verified, false);
-          assert.ok(/^Q\\d+$/.test(profile.matched_entity.id));
+          assert.ok(profile.matched_entity.id.startsWith('Q') && Number.isFinite(Number(profile.matched_entity.id.slice(1))));
           assert.ok(profile.sources.some(s => s.field === 'company_match' && s.source_url === profile.matched_entity.url));
           assert.ok(profile.sources.every(s => s.source === 'Wikidata' && s.retrieved_at === profile.retrieved_at));
           console.log(JSON.stringify({
@@ -44,3 +44,4 @@ jobs:
             note: 'Real public source queried; no model, customer data, secret, or payment used.'
           }, null, 2));
           NODE
+
