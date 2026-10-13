@@ -1,0 +1,39 @@
+name: EnrichIQ Worker Compatibility Gate
+on:
+  push:
+    branches:
+      - feat/wikidata-source-attribution-2026-10-14
+    paths:
+      - "package.json"
+      - "src/**"
+      - "wrangler.toml"
+      - ".github/workflows/worker-compat.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "package.json"
+      - "src/**"
+      - "wrangler.toml"
+      - ".github/workflows/worker-compat.yml"
+permissions:
+  contents: read
+concurrency:
+  group: enrichiq-worker-compat-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  worker-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies without lifecycle scripts
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Bundle the Cloudflare Worker without deploying
+        run: npx wrangler deploy --dry-run --outdir /tmp/enrichiq-worker-dry-run
+      - name: Confirm the expected worker bundle exists
+        run: test -s /tmp/enrichiq-worker-dry-run/index.js
+      - name: Run unit tests
+        run: npm test
