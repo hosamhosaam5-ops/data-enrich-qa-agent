@@ -1,3 +1,4 @@
+import { fetchWikidataProfile } from "./wikidata.js";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -47,6 +48,17 @@ export default {
       }
       const companyName = body.company_name.trim();
       if (companyName.length > 200) return jsonResponse({ success: false, error: "company_name must be 200 characters or fewer." }, 400);
+      // Prefer a unique exact-label organization match from public Wikidata data.
+      // Every fact remains explicitly unverified; this is attribution, not truth certification.
+      let sourceLookupStatus = "unavailable";
+      try {
+        const sourced = await fetchWikidataProfile(companyName);
+        if (sourced) return jsonResponse({ success: true, data: sourced });
+        sourceLookupStatus = "no_exact_match";
+      } catch {
+        // Rate limits, timeouts, or source outages fall back to the explicitly unverified AI path.
+        sourceLookupStatus = "unavailable";
+      }
       if (!env.AI || typeof env.AI.run !== "function") {
         return jsonResponse({ success: false, error: "Workers AI binding AI is not configured." }, 503);
       }
@@ -81,9 +93,14 @@ Rules: You have no live web search. Never claim facts are verified. Do not inven
         linkedin_url: linkedin,
         industry: nullableString(data.industry),
         confidence: allowedConfidence,
+        confidence_scope: "model_estimate_only",
         verification_status: "unverified_ai_generated",
         data_source: "cloudflare_workers_ai",
-        is_verified: false
+        is_verified: false,
+        source_lookup_status: sourceLookupStatus,
+        retrieved_at: new Date().toISOString(),
+        matched_entity: null,
+        sources: []
       }});
     } catch {
       return jsonResponse({ success: false, error: "Internal server error." }, 500);
