@@ -2,15 +2,17 @@ openapi: 3.0.3
 info:
   title: EnrichIQ
   version: 1.0.0
-  description: Turn company names into AI powered business insights with leadership details, contacts and industry data. Fast, simple and built for developers and AI agents. Results are unverified and may be inaccurate.
+  description: Source-attributed company data from public Wikidata claims, with a clearly labeled AI-only fallback. All values remain unverified and may be inaccurate.
   termsOfService: https://github.com/hosamhosaam5-ops/data-enrich-qa-agent/blob/main/docs/terms-of-service.md
   x-long-description: >
-    EnrichIQ turns company names into AI powered business insights for developers and AI agents.
-    It may return leadership information, public business contact details, LinkedIn URLs,
-    and industry fields. Unknown fields may be null. The service uses an AI model without
-    live web research or independent source verification. Results may be incomplete,
-    outdated, or incorrect. Every response remains marked unverified and must be checked
-    independently before use in consequential workflows.
+    EnrichIQ first searches Wikidata's public API for one exact-label organization match.
+    When found, it can return leadership, industry, and LinkedIn fields with field-level
+    source URLs and retrieval timestamps. Wikidata attribution is not independent fact
+    verification; every response keeps is_verified=false. A CEO email is null in the
+    source-attributed path because this source flow does not source email addresses.
+    If no exact match is available or the source is unavailable, the service falls back
+    to a clearly labeled AI-generated profile without source claims. Verify consequential
+    data independently before use.
   x-category: Data
   x-website: https://github.com/hosamhosaam5-ops/data-enrich-qa-agent
 servers:
@@ -20,11 +22,13 @@ paths:
   /:
     post:
       operationId: enrichCompany
-      summary: Enrich a company name with AI-generated fields
+      summary: Enrich a company name with public-source attribution and cautious AI fallback
       description: >
-        Provide a company name. The service may return CEO, public contact, LinkedIn,
-        and industry fields when the model can provide them, otherwise null.
-        All returned data is explicitly unverified. RapidAPI automatically injects
+        Provide a company name. The service attempts an exact-label organization match
+        in Wikidata first and attributes returned CEO, industry, or LinkedIn values
+        to field-level sources. If no unique exact-label match is available, it returns
+        an explicitly unverified AI-only fallback. All data remains unverified.
+        RapidAPI automatically injects
         its API-specific X-RapidAPI-Proxy-Secret header from Firewall Settings.
         The Worker validates this header against a Cloudflare Worker Secret; do not
         expose the secret value to API consumers.
@@ -41,7 +45,7 @@ paths:
               company_name: Microsoft
       responses:
         '200':
-          description: Enrichment completed; values are AI-generated and unverified.
+          description: Enrichment completed; data is source-attributed but unverified, or explicitly AI-generated and unverified when no exact source match is available.
           content:
             application/json:
               schema:
@@ -49,15 +53,20 @@ paths:
               example:
                 success: true
                 data:
-                  company_name: Microsoft
+                  company_name: Example Research Company
                   ceo_name: null
                   ceo_email: null
                   linkedin_url: null
-                  industry: Technology
+                  industry: null
                   confidence: low
+                  confidence_scope: model_estimate_only
                   verification_status: unverified_ai_generated
                   data_source: cloudflare_workers_ai
                   is_verified: false
+                  source_lookup_status: no_exact_match
+                  retrieved_at: "2026-10-14T00:00:00Z"
+                  matched_entity: null
+                  sources: []
         '400':
           description: Missing or invalid company_name or invalid JSON.
           content:
@@ -166,15 +175,69 @@ components:
             confidence:
               type: string
               enum: [low, medium, high]
+            confidence_scope:
+              type: string
+              enum: [exact_entity_label_match_only, model_estimate_only]
+              description: Exact entity-name match confidence only; it is not factual confidence.
             verification_status:
               type: string
-              enum: [unverified_ai_generated]
+              enum: [unverified_ai_generated, source_attributed_unverified]
             data_source:
               type: string
-              enum: [cloudflare_workers_ai]
+              enum: [cloudflare_workers_ai, wikidata]
             is_verified:
               type: boolean
               enum: [false]
+            source_lookup_status:
+              type: string
+              enum: [exact_match, no_exact_match, unavailable]
+            retrieved_at:
+              type: string
+              format: date-time
+            matched_entity:
+              type: object
+              nullable: true
+              required: [id, label, description, url]
+              properties:
+                id:
+                  type: string
+                label:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                url:
+                  type: string
+                  format: uri
+            sources:
+              type: array
+              items:
+                type: object
+                required: [field, value, source, source_url, entity_id, property_id, reference_urls, retrieved_at]
+                properties:
+                  field:
+                    type: string
+                  value:
+                    type: string
+                  source:
+                    type: string
+                    enum: [Wikidata]
+                  source_url:
+                    type: string
+                    format: uri
+                  entity_id:
+                    type: string
+                  property_id:
+                    type: string
+                    nullable: true
+                  reference_urls:
+                    type: array
+                    items:
+                      type: string
+                      format: uri
+                  retrieved_at:
+                    type: string
+                    format: date-time
     ErrorResponse:
       type: object
       required:
