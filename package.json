@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare Worker for cautious AI-assisted company-data enrichment QA; output remains unverified.",
+  "description": "Cloudflare Worker for source-attributed company-data enrichment with explicitly unverified AI fallback.",
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",

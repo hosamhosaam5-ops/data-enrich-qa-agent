@@ -1,6 +1,6 @@
 # Data Enrich QA Agent
 
-A Cloudflare Worker API that generates a cautious, AI-assisted company profile from a supplied company name. **This service does not perform live web research or independently verify facts.** Every response must remain explicitly marked as AI-generated and unverified.
+A Cloudflare Worker API that first queries Wikidata for a unique exact-label organization match and adds field-level source URLs and retrieval timestamps for supported claims. If no unique match is found or the source is unavailable, it falls back to a cautious AI-generated profile. **Neither source attribution nor model confidence independently verifies facts.** Every response remains marked unverified.
 
 ## Endpoint
 
@@ -33,7 +33,7 @@ Successful responses have this shape:
 }
 ```
 
-Values may be `null` when the model cannot provide a cautious answer. The model's confidence label is not independent verification. Do not use this service as an authoritative source of corporate or personal data.
+Source-attributed responses use `data_source: "wikidata"`, `verification_status: "source_attributed_unverified"`, `is_verified: false`, `matched_entity`, and a `sources` array. Each source record identifies the field, the Wikidata item/property, reference URLs when present, and retrieval time. CEO email is null in this path because the source flow does not source email addresses. The `confidence` value for this path measures exact entity-label matching only, not truth. If the match is absent or ambiguous, the service falls back to `data_source: "cloudflare_workers_ai"`, `verification_status: "unverified_ai_generated"`, and an empty `sources` array. Do not use either path as an authoritative source of corporate or personal data without independent checks.
 
 ## Authentication and required configuration
 
@@ -58,6 +58,7 @@ The OpenAPI 3.0 description is in [`openapi.yaml`](./openapi.yaml).
 - HTTP 415 indicates a non-JSON request.
 - HTTP 502 indicates invalid model output.
 - HTTP 503 indicates missing origin authentication or Workers AI configuration.
+- `source_lookup_status` is `exact_match`, `no_exact_match`, or `unavailable`; source failures fall back to the clearly labeled AI-only path.
 
 ## Local checks
 

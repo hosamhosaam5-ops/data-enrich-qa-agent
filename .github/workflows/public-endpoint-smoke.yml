@@ -62,8 +62,18 @@ jobs:
               console.error("Missing response fields:", missing.join(", "));
               process.exit(1);
             }
-            if (body.data.verification_status !== "unverified_ai_generated" || body.data.is_verified !== false) {
+            const allowedStatus = ["unverified_ai_generated", "source_attributed_unverified"];
+            if (!allowedStatus.includes(body.data.verification_status) || body.data.is_verified !== false) {
               console.error("Response did not preserve the expected unverified-data labels.");
+              process.exit(1);
+            }
+            if (body.data.verification_status === "source_attributed_unverified") {
+              if (body.data.data_source !== "wikidata" || !Array.isArray(body.data.sources) || body.data.sources.length === 0 || !body.data.matched_entity?.id) {
+                console.error("Source-attributed response is missing its entity/source evidence.");
+                process.exit(1);
+              }
+            } else if (body.data.data_source !== "cloudflare_workers_ai" || !Array.isArray(body.data.sources) || body.data.sources.length !== 0) {
+              console.error("AI fallback must be explicitly labeled and must not claim source attribution.");
               process.exit(1);
             }
             console.log("PASS: valid JSON and expected response schema.");

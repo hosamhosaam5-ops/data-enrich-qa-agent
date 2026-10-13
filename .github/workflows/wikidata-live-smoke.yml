@@ -1,0 +1,47 @@
+name: Wikidata source-attribution live smoke
+on:
+  push:
+    branches:
+      - feat/wikidata-source-attribution-2026-10-14
+    paths:
+      - "src/wikidata.js"
+      - ".github/workflows/wikidata-live-smoke.yml"
+permissions:
+  contents: read
+jobs:
+  live-source-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify real public Wikidata source attribution (read-only)
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { fetchWikidataProfile } from './src/wikidata.js';
+
+          const profile = await fetchWikidataProfile('Microsoft');
+          assert.ok(profile, 'Wikidata should return one exact-label organization match for Microsoft');
+          assert.equal(profile.company_name, 'Microsoft');
+          assert.equal(profile.source_lookup_status, 'exact_match');
+          assert.equal(profile.data_source, 'wikidata');
+          assert.equal(profile.verification_status, 'source_attributed_unverified');
+          assert.equal(profile.is_verified, false);
+          assert.ok(profile.matched_entity.id.startsWith('Q') && Number.isFinite(Number(profile.matched_entity.id.slice(1))));
+          assert.ok(profile.sources.some(s => s.field === 'company_match' && s.source_url === profile.matched_entity.url));
+          assert.ok(profile.sources.every(s => s.source === 'Wikidata' && s.retrieved_at === profile.retrieved_at));
+          console.log(JSON.stringify({
+            result: 'PASS',
+            matched_entity: profile.matched_entity,
+            ceo_name_present: Boolean(profile.ceo_name),
+            industry_present: Boolean(profile.industry),
+            source_count: profile.sources.length,
+            source_fields: profile.sources.map(s => s.field),
+            is_verified: profile.is_verified,
+            note: 'Real public source queried; no model, customer data, secret, or payment used.'
+          }, null, 2));
+          NODE
+

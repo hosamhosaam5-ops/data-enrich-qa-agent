@@ -48,7 +48,8 @@ jobs:
             console.error("FAIL: response is missing success=true and a data object.");
             process.exit(1);
           }
-          if (body.data.verification_status !== "unverified_ai_generated") {
+          const allowedStatus = ["unverified_ai_generated", "source_attributed_unverified"];
+          if (!allowedStatus.includes(body.data.verification_status)) {
             console.error("FAIL: unexpected verification_status.");
             process.exit(1);
           }
@@ -56,7 +57,17 @@ jobs:
             console.error("FAIL: is_verified must be false.");
             process.exit(1);
           }
+          if (body.data.verification_status === "source_attributed_unverified") {
+            if (body.data.data_source !== "wikidata" || !Array.isArray(body.data.sources) || body.data.sources.length === 0 || !body.data.matched_entity?.id) {
+              console.error("FAIL: sourced response is missing source/entity evidence.");
+              process.exit(1);
+            }
+          } else if (body.data.data_source !== "cloudflare_workers_ai" || !Array.isArray(body.data.sources) || body.data.sources.length !== 0) {
+            console.error("FAIL: AI fallback must not claim source attribution.");
+            process.exit(1);
+          }
           console.log("PASS: RapidAPI proxy returned HTTP 200 and expected unverified-data labels.");
           console.log("verification_status:", body.data.verification_status);
+          console.log("data_source:", body.data.data_source);
           console.log("is_verified:", body.data.is_verified);
           NODE
